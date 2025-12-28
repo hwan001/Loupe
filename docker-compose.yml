@@ -1,0 +1,12 @@
+services:
+  db:
+    image: neo4j:latest
+    container_name: db
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - ~/loupe_data/data:/data
+    environment:
+      - NEO4J_AUTH=neo4j/password
+      - NEO4J_PLUGINS=["apoc"]
