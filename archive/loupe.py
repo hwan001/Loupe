@@ -11,7 +11,7 @@ from langchain_openai import ChatOpenAI
 from langchain_community.chains.graph_qa.cypher import GraphCypherQAChain
 from langchain_core.prompts import PromptTemplate
 from langchain_core.documents import Document
-from generator import ScenarioGenerator
+from scenario_generator import ScenarioGenerator
 
 # [설정] 환경 변수 로드
 load_dotenv()
