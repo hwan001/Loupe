@@ -18,29 +18,25 @@ class ScenarioGenerator:
 
     def load_csv_data(self):
         """CSV 로드 (인코딩 처리 및 공백 제거)"""
-        # (1) Actors 로드
-        # (1) Actors 로드
         if os.path.exists("dummy/actors.csv"):
             try:
                 with open("dummy/actors.csv", 'r', encoding='utf-8-sig') as f:
                     reader = csv.DictReader(f)
-                    # 데이터 정제 (공백 제거)
                     self.actors = [{k.strip(): v.strip() for k, v in row.items()} for row in reader]
-                print(f"  ✅ [시뮬레이터] 등장인물 {len(self.actors)}명 로드 완료.")
+                print(f"  [시뮬레이터] 등장인물 {len(self.actors)}명 로드 완료.")
             except Exception as e:
-                print(f"  ❌ [시뮬레이터] actors.csv 로드 실패: {e}")
+                print(f"  [시뮬레이터] actors.csv 로드 실패: {e}")
         else:
-            print("  ⚠️ [시뮬레이터] dummy/actors.csv 파일이 없습니다. 기본값을 사용합니다.")
+            print("  [시뮬레이터] dummy/actors.csv 파일이 없습니다. 기본값을 사용합니다.")
             
-        # (2) Actions 로드
         if os.path.exists("dummy/actions.csv"):
             try:
                 with open("dummy/actions.csv", 'r', encoding='utf-8-sig') as f:
                     reader = csv.DictReader(f)
                     self.scenarios = [{k.strip(): v.strip() for k, v in row.items()} for row in reader]
-                print(f"  ✅ [시뮬레이터] 행동 패턴 {len(self.scenarios)}개 로드 완료.")
+                print(f"  [시뮬레이터] 행동 패턴 {len(self.scenarios)}개 로드 완료.")
             except Exception as e:
-                print(f"  ❌ [시뮬레이터] actions.csv 로드 실패: {e}")
+                print(f"  [시뮬레이터] actions.csv 로드 실패: {e}")
 
     def _get_actor_profile(self, actor):
         """
@@ -54,7 +50,6 @@ class ScenarioGenerator:
         age = actor.get('age', '30')
         gender = actor.get('gender', '알수없음')
         
-        # 포맷: "보안팀 김철수 부장 (ID: sec-1001, 50세/남성)"
         return f"{team} {name} {role} (ID: {uid}, {age}세/{gender})"
 
     def generate_one(self):
@@ -116,14 +111,13 @@ class ScenarioGenerator:
         return content
         
     def run(self):
-        print("\n🎰 [시뮬레이터] 페르소나 기반 시나리오 생성을 시작합니다.")
+        print("\n  [시뮬레이터] 페르소나 기반 시나리오 생성을 시작합니다.")
         self.is_running = True
         while self.is_running:
             text = self.generate_one()
             self.queue.put(("AUTO_GEN", text))
-            # 5~10초 대기
-            time.sleep(random.randint(5, 10))
+            time.sleep(random.randint(2, 5))
             
     def stop(self):
         self.is_running = False
-        print("\n🛑 [시뮬레이터] 중단됨.")
+        print("\n  [시뮬레이터] 중단됨.")

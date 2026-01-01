@@ -1,15 +1,21 @@
 import csv
 import random
+import shutil
 import os
 
-class DataFactory:
+class DataGenerator:
     """
     시스템 운영에 필요한 CSV 데이터(HR, Actors, Actions)를 생성하는 팩토리 클래스.
     HR 데이터와 시뮬레이터 배우 데이터의 정합성을 보장합니다.
     """
     
-    def __init__(self):
-        self.total_count = 100
+    def __init__(self, dummy_dir="dummy", total_count=50):
+        self.dummy_dir = dummy_dir
+        self.dummy_hr_data = "hr_data.csv"
+        self.dummy_actors_data = "actors.csv"
+        self.dummy_actions_data = "actions.csv"
+
+        self.total_count = total_count
         self.first_names = ["철수", "영희", "민수", "서호", "민석", "주영", "도원", "서원", "지원", "현우", "지민", "수진", "우성", "재석", "동엽", "경규", "나래", "세형", "구라", "흥국"]
         self.last_names = ["김", "이", "박", "최", "정", "강", "조", "윤", "장", "임", "한", "오", "서", "신", "권", "황", "안", "송", "류", "홍"]
         
@@ -44,20 +50,17 @@ class DataFactory:
         """HR 데이터, Actor 데이터, Action 데이터를 한 번에 생성"""
         print("🏭 [Factory] 데이터 생성을 시작합니다...")
         
-        # 1. HR 데이터 생성 (Master Data)
+        if not os.path.exists(self.dummy_dir):
+            os.makedirs(self.dummy_dir)
+
         hr_rows = self._create_hr_data()
-        
-        # 2. Actors 데이터 생성 (HR 데이터 기반 + 외부인 추가)
         self._create_actors_data(hr_rows)
-        
-        # 3. Actions 데이터 생성 (시나리오 패턴)
         self._create_actions_data()
         
-        print("✅ [Factory] 모든 데이터 파일(hr_data.csv, actors.csv, actions.csv) 생성 완료!")
+        print(f" [Factory] 모든 더미 데이터 파일 ({self.dummy_hr_data}, {self.dummy_actors_data}, {self.dummy_actions_data}) 생성 완료")
 
     def _create_hr_data(self):
         data = []
-        # 그룹 비율 설정
         groups = (["SECURITY"] * 20 + ["IT"] * 30 + ["HR"] * 15 + ["EXECUTIVE"] * 10 + ["STAFF"] * 25)
         while len(groups) < self.total_count: groups.append("STAFF")
         random.shuffle(groups)
@@ -73,8 +76,7 @@ class DataFactory:
             name = self.generate_name()
             age = random.randint(24, 58)
             gender = random.choice(["남성", "여성"])
-            
-            # 직급 로직
+
             if age < 28: role = "사원"
             elif age < 33: role = "대리"
             elif age < 40: role = "과장"
@@ -88,22 +90,21 @@ class DataFactory:
 
             row = {
                 "id": user_id, "name": name, "age": age, "gender": gender,
-                "role": role, "team": team, "company": "태산그룹",
+                "role": role, "team": team, "company": "대현그룹",
                 "group": group, "major": major, "certifications": certs
             }
             data.append(row)
 
-        with open("dummy/hr_data.csv", "w", newline="", encoding="utf-8") as f:
+        with open(f"{self.dummy_dir}/{self.dummy_hr_data}", "w", newline="", encoding="utf-8") as f:
             fieldnames = ["id", "name", "age", "gender", "role", "team", "company", "group", "major", "certifications"]
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(data)
             
-        print(f"   - hr_data.csv 생성 완료 ({len(data)}명)")
+        print(f"   - {self.dummy_hr_data} 생성 완료 ({len(data)}명)")
         return data
 
     def _create_actors_data(self, hr_rows):
-        # HR 직원들 그대로 배우로 등록
         actors = []
         for row in hr_rows:
             actors.append({
@@ -111,23 +112,21 @@ class DataFactory:
                 "role": row["role"], "team": row["team"], "company": row["company"], "group": row["group"]
             })
             
-        # 외부인/용의자 추가
         suspects = [
             {"id": "suspect-001", "name": "신원미상", "age": 40, "gender": "남성", "role": "unknown", "team": "unknown", "company": "unknown", "group": "SUSPECT"},
             {"id": "visitor-001", "name": "김방문", "age": 30, "gender": "여성", "role": "방문객", "team": "영업팀", "company": "협력사", "group": "VISITOR"}
         ]
         actors.extend(suspects)
 
-        with open("dummy/actors.csv", "w", newline="", encoding="utf-8-sig") as f:
+        with open(f"{self.dummy_dir}/{self.dummy_actors_data}", "w", newline="", encoding="utf-8-sig") as f :
             fieldnames = ["id", "name", "age", "gender", "role", "team", "company", "group"]
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(actors)
             
-        print(f"   - actors.csv 생성 완료 ({len(actors)}명 - 직원+외부인)")
+        print(f"   - {self.dummy_actors_data} 생성 완료 ({len(actors)}명 - 직원+외부인)")
 
     def _create_actions_data(self):
-        # 최적화된 시나리오 패턴
         actions = [
             {"category": "SEC", "target_group": "IT", "location": "서버실", "action": "보안 USB를 꽂고 데이터를 다운로드함", "source": "보안 로그"},
             {"category": "SEC", "target_group": "SUSPECT", "location": "지하 주차장", "action": "검은색 가방을 트렁크에 싣는 모습이 포착됨", "source": "CCTV"},
@@ -139,14 +138,16 @@ class DataFactory:
             {"category": "RELATION", "target_group": "IT", "location": "개발팀 회의실", "action": "서로의 코드를 리뷰해주며 칭찬함 (협력)", "source": "팀장 관찰 기록"},
             {"category": "RELATION", "target_group": "SUSPECT", "location": "비상계단", "action": "은밀하게 쪽지를 건네고 헤어짐 (의심)", "source": "청소부 제보"}
         ]
-        
-        # 좀 더 늘리기 (단순 복제하여 다양성 확보)
         extended_actions = actions * 3 
 
-        with open("dummy/actions.csv", "w", newline="", encoding="utf-8-sig") as f:
+        with open(f"{self.dummy_dir}/{self.dummy_actions_data}", "w", newline="", encoding="utf-8-sig") as f:
             fieldnames = ["category", "target_group", "location", "action", "source"]
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(extended_actions)
             
-        print(f"   - actions.csv 생성 완료 ({len(extended_actions)}개 패턴)")
+        print(f"  - {self.dummy_actions_data} 생성 완료 ({len(extended_actions)}개 패턴)")
+    
+    def clear(self):
+        if os.path.exists(self.dummy_dir):
+            shutil.rmtree(self.dummy_dir)

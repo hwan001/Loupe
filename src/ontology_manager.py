@@ -16,14 +16,14 @@ class OntologyManager:
         """
         if os.path.exists(self.storage_file):
             try:
-                print(f"📂 [Ontology] 저장된 스키마 파일('{self.storage_file}')을 로드합니다.")
+                print(f"  [Ontology] 저장된 스키마 파일('{self.storage_file}')을 로드합니다.")
                 with open(self.storage_file, 'r', encoding='utf-8') as f:
                     return json.load(f)
             except Exception as e:
-                print(f"⚠️ 스키마 파일 로드 실패 (기본값 사용): {e}")
+                print(f"  스키마 파일 로드 실패 (기본값 사용): {e}")
         
-        print("🆕 [Ontology] 저장된 파일이 없어 기본 스키마(ontology.py)로 초기화합니다.")
-        # 기본 스키마 구조
+        print("  [Ontology] 저장된 파일이 없어 기본 스키마(ontology.py)로 초기화합니다.")
+
         return {
             "nodes": GraphSchema.NODES,
             "relationships": GraphSchema.RELATIONSHIPS
@@ -34,9 +34,9 @@ class OntologyManager:
         try:
             with open(self.storage_file, 'w', encoding='utf-8') as f:
                 json.dump(self.current_schema, f, indent=4, ensure_ascii=False)
-            print(f"💾 [Ontology] 변경된 스키마가 '{self.storage_file}'에 저장되었습니다.")
+            print(f"  [Ontology] 변경된 스키마가 '{self.storage_file}'에 저장되었습니다.")
         except Exception as e:
-            print(f"⚠️ 스키마 저장 실패: {e}")
+            print(f"  스키마 저장 실패: {e}")
 
     def get_instruction_string(self):
         """Loupe 학습기용 프롬프트 생성 (동적 스키마 기반)"""
@@ -57,11 +57,17 @@ class OntologyManager:
         for rel in self.current_schema["relationships"]:
             txt += f"- {rel}\n"
             
-        return txt
+        return txt + "\n" + """
+            [Ingestion Strategy - CRITICAL]
+            1. **Existing IDs Only**: When extracting 'Person' or 'Organization', YOU MUST USE the explicit ID provided in the text (e.g., 'ID: sec-1001').
+            2. **No Ghost Nodes**: DO NOT create a 'Person' node if the text does not provide a valid ID (like 'sec-xxx'). If the ID is missing, skip the Person node and only extract the Event.
+            3. **Focus on Events**: Your primary goal is to create 'Event' nodes and link them to the 'Person' using the valid ID.
+            4. **Property Completeness**: Do not create nodes with empty or 'unknown' properties.
+            """
 
     def discover_schema(self, text_samples):
         """[AI] 데이터 패턴 분석 및 스키마 확장 제안"""
-        print("🧠 [Architect] 데이터 패턴을 분석하여 온톨로지 확장을 시도합니다...")
+        print(" [Architect] 데이터 패턴을 분석하여 온톨로지 확장을 시도합니다...")
 
         prompt_template = """
         You are a Knowledge Graph Architect.
@@ -107,7 +113,7 @@ class OntologyManager:
             return json.loads(content)
             
         except Exception as e:
-            print(f"⚠️ 스키마 발견 실패: {e}")
+            print(f"  스키마 발견 실패: {e}")
             return None
 
     def update_schema(self, suggestion):
@@ -123,18 +129,27 @@ class OntologyManager:
         for label, spec in new_nodes.items():
             if label not in self.current_schema["nodes"]:
                 self.current_schema["nodes"][label] = spec
-                print(f"   ✨ [New Entity] '{label}' 엔티티가 추가되었습니다.")
+                print(f"  [New Entity] '{label}' 엔티티가 추가되었습니다.")
                 updated_count += 1
                 
         # 관계 병합
         for rel in new_rels:
             if rel not in self.current_schema["relationships"]:
                 self.current_schema["relationships"].append(rel)
-                print(f"   🔗 [New Relation] 관계 규칙 추가: {rel}")
+                print(f"  [New Relation] 관계 규칙 추가: {rel}")
                 updated_count += 1
                 
         if updated_count > 0:
             self.save_schema()  # [핵심] 변경사항 파일 저장
-            print("   ✅ 스키마 업데이트 및 저장이 완료되었습니다. (재시작 시 반영됨)")
+            print("  스키마 업데이트 및 저장이 완료되었습니다. (재시작 시 반영됨)")
         else:
-            print("   (변동 사항 없음)")
+            print("  (변동 사항 없음)")
+
+    def clear(self):
+        # 저장된 파일 삭제
+        if os.path.exists(self.storage_file):
+            os.remove(self.storage_file)
+            print(" [Ontology Manager] 저장된 스키마가 삭제되었습니다.")
+        
+        self.current_schema = self._load_schema()
+        

@@ -11,6 +11,11 @@ try:
 except ImportError:
     ChatGoogleGenerativeAI = None
 
+try:
+    from langchain_community.chat_models import ChatOllama
+except ImportError:
+    ChatOllama = None
+
 load_dotenv()
 
 def get_chat_model():
@@ -38,7 +43,12 @@ def get_chat_model():
             convert_system_message_to_human=True
         )
 
-    # (추가 확장 가능: Anthropic, Ollama 등)
-    
+    elif provider == "ollama":
+        if not ChatOllama: raise ImportError("langchain-community 패키지가 필요합니다.")
+        return ChatOllama(
+            model=model_name,
+            base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
+            temperature=temp
+        )
     else:
         raise ValueError(f"지원하지 않는 LLM_PROVIDER입니다: {provider}")

@@ -18,9 +18,9 @@ from langchain_core.documents import Document
 from ontology_manager import OntologyManager 
 from ontology import GraphSchema
 from scenario_generator import ScenarioGenerator
-from hr_loader import HRDataManager
+from hr_manager import HRDataManager
 from utils import load_prompt_file
-from data_factory import DataFactory
+from data_generator import DataGenerator
 from llm_factory import get_chat_model
 
 # [설정] 환경 변수 로드
@@ -48,7 +48,7 @@ QA_PROMPT_TEXT = load_prompt_file("src/prompt_qa.md")
 
 # [매니저 초기화]
 hr_manager = HRDataManager(data_queue, graph)
-data_factory = DataFactory() 
+data_generator = DataGenerator(dummy_dir="dummy", total_count=50) 
 ontology_manager = OntologyManager(llm) # 동적 스키마 매니저
 
 # 초기 학습 지침 생성 (OntologyManager가 관리하는 스키마 기반)
@@ -59,11 +59,11 @@ INGESTION_INSTRUCTIONS = ontology_manager.get_instruction_string()
 # 1. [Worker] 자율 온톨로지 학습기
 # ---------------------------------------------------------
 def ingestion_worker():
-    print("🧠 [Loupe] 자율 학습 엔진 가동 (Dynamic Ontology 기반)")
+    print("  [Loupe] 자율 학습 엔진 가동 (Dynamic Ontology 기반)")
     
     # 워커 시작 시점의 최신 스키마 노드 리스트 가져오기
     current_allowed_nodes = list(ontology_manager.current_schema["nodes"].keys())
-    print(f"   📜 적용된 스키마: {', '.join(current_allowed_nodes)} 등.")
+    print(f"  적용된 스키마: {', '.join(current_allowed_nodes)} 등.")
 
     transformer = LLMGraphTransformer(
         llm=llm,
@@ -107,7 +107,7 @@ def ingestion_worker():
             
             data_queue.task_done()
         except Exception as e:
-            print(f"  ❌ [백그라운드 오류] {e}")
+            print(f"  [백그라운드 오류] {e}")
 
 threading.Thread(target=ingestion_worker, daemon=True).start()
 
@@ -145,7 +145,7 @@ def ask_loupe(question):
 # 3. [Logic] 관계 집계 엔진
 # ---------------------------------------------------------
 def aggregate_relationships():
-    print("🔄 [시스템] 인물 간 상호작용 점수를 집계하여 관계 지도를 갱신합니다...")
+    print("  [시스템] 인물 간 상호작용 점수를 집계하여 관계 지도를 갱신합니다...")
     query = """
     MATCH (p1:Person)-[r:INTERACTED]->(p2:Person)
     WITH p1, p2, sum(r.score) AS total_score
@@ -157,28 +157,32 @@ def aggregate_relationships():
     try:
         result = graph.query(query)
         count = result[0]['updated_count'] if result else 0
-        print(f"   ✅ {count}쌍의 인물 관계 강도(strength)가 갱신되었습니다.")
+        print(f"  {count}쌍의 인물 관계 강도(strength)가 갱신되었습니다.")
     except Exception as e:
-        print(f"   ⚠️ 관계 집계 오류: {e}")
+        print(f"  관계 집계 오류: {e}")
 
 # ---------------------------------------------------------
 # 4. [Main] 사용자 인터페이스
 # ---------------------------------------------------------
 if __name__ == "__main__":
-    print("--- 🔮 Loupe v1.0: Full Integrated System ---")
-    print(f"--- 🤖 Engine: {os.getenv('LLM_PROVIDER', 'Unknown').upper()} / {os.getenv('LLM_MODEL')} ---")
+    print("--- Loupe v1.0: Full Integrated System ---")
+    print(f"--- Engine: {os.getenv('LLM_PROVIDER', 'Unknown').upper()} / {os.getenv('LLM_MODEL')} ---")
     
     simulator = ScenarioGenerator(data_queue)
     sim_thread = None
 
+    dummy_actors = "dummy/actors.csv"
+    dummy_actions = "dummy/actions.csv"
+    dummy_hr_data = "dummy/hr_data.csv"
+
     try:
         while True:
-            sim_status = "ON 🟢" if simulator.is_running else "OFF ⚪"
+            sim_status = "ON" if simulator.is_running else "OFF"
             
             print(f"\n------------------------------------------------")
             print(f" [1] 수동 제보   [2] 질문하기   [3] 시뮬레이터 {sim_status}")
-            print(f" [4] 뇌 초기화   [5] HR 데이터 로드   [6] 관계 점수 집계")
-            print(f" [7] 테스트 데이터 생성(CSV)   [8] AI 온톨로지 발견(New)   [q] 종료")
+            print(f" [4] 초기화   [5] HR 데이터 로드   [6] 관계 점수 집계")
+            print(f" [7] 더미 데이터 생성   [8] AI 온톨로지 개선   [q] 종료")
             choice = input(" 선택 > ")
             
             if choice == '1':
@@ -190,14 +194,14 @@ if __name__ == "__main__":
             elif choice == '2':
                 query = input("질문: ")
                 if query.strip():
-                    print("🕵️ 분석 중...")
+                    print("  분석 중...")
                     res = ask_loupe(query)
-                    print(f"\n🗣️ 답변:\n{res['result']}")
+                    print(f"\n  답변:\n{res['result']}")
                 
             elif choice == '3':
                 if not simulator.is_running:
-                    if not os.path.exists("dummy/actors.csv"):
-                        print("⚠️ 'dummy/actors.csv'가 없습니다. [7]번을 눌러 데이터를 먼저 생성해주세요.")
+                    if not os.path.exists(dummy_actors):
+                        print(f"{dummy_actors}가 없습니다. ([7]번으로 더미 데이터 생성 가능)")
                     else:
                         sim_thread = threading.Thread(target=simulator.run, daemon=True)
                         sim_thread.start()
@@ -206,35 +210,36 @@ if __name__ == "__main__":
                     if sim_thread: sim_thread.join()
 
             elif choice == '4':
-                if input("⚠️ 정말 초기화합니까? (y/n): ") == 'y':
+                if input("  정말 초기화합니까? (y/n): ") == 'y':
                     try:
-                        graph.query("MATCH (n) DETACH DELETE n")
-                        print("💥 초기화 완료")
+                        graph.query("MATCH (n) DETACH DELETE n") # 데이터 초기화
+                        ontology_manager.clear() # 스키마 초기화
+                        data_generator.clear() # 더미 데이터 삭제
+
+                        print("  초기화 완료")
                     except Exception as e:
-                        print(f"❌ 초기화 실패: {e}")
+                        print(f"  초기화 실패: {e}")
 
             elif choice == '5':
-                if not os.path.exists("dummy/hr_data.csv"):
-                    print("⚠️ 'dummy/hr_data.csv'가 없습니다. [7]번을 눌러 데이터를 먼저 생성해주세요.")
+                if not os.path.exists(dummy_hr_data):
+                    print(f"{dummy_hr_data} 파일이 없습니다. ([7]번으로 HR 더미 데이터 생성 가능)")
                 else:
-                    hr_manager.load_csv("dummy/hr_data.csv")
-                    # HR 로드 후 즉시 관계 추론 실행
-                    hr_manager.run_relationship_inference()
+                    hr_manager.load_csv(dummy_hr_data)
+                    hr_manager.run_relationship_inference() # 관계 추론
 
             elif choice == '6':
                 aggregate_relationships()
                 
             elif choice == '7':
-                data_factory.generate_all_data()
+                data_generator.generate_all_data()
 
             elif choice == '8':
-                # [NEW] 온톨로지 자동 발견 및 진화
-                print("🕵️ 최근 시나리오 데이터를 분석하여 스키마 확장을 시도합니다...")
+                print("  최근 시나리오 데이터를 분석하여 스키마 확장을 시도합니다...")
                 samples = []
-                if os.path.exists("dummy/actions.csv"):
-                     with open("dummy/actions.csv", 'r', encoding='utf-8-sig') as f:
+                
+                if os.path.exists(dummy_actions):
+                     with open(dummy_actions, 'r', encoding='utf-8-sig') as f:
                         reader = csv.DictReader(f)
-                        # 샘플 5개만 추출
                         for i, row in enumerate(reader):
                             if i >= 5: break
                             samples.append(f"장소 {row['location']}에서 {row['target_group']} 그룹이 '{row['action']}' 행동을 함.")
@@ -242,15 +247,15 @@ if __name__ == "__main__":
                 if samples:
                     suggestion = ontology_manager.discover_schema(samples)
                     if suggestion:
-                        print("\n🤖 AI가 제안한 스키마 변경안:")
+                        print("\n AI가 제안한 스키마 변경안:")
                         print(suggestion)
-                        if input("✨ 이 변경사항을 적용하시겠습니까? (y/n): ") == 'y':
+                        if input("  이 변경사항을 적용하시겠습니까? (y/n): ") == 'y':
                             ontology_manager.update_schema(suggestion)
-                            print("⚠️ 주의: 변경된 스키마를 적용하려면 프로그램을 재시작해주세요.")
+                            print("  주의: 변경된 스키마를 적용하려면 프로그램을 재시작해주세요.")
                     else:
-                        print("ℹ️ 현재 데이터로는 새로운 스키마가 필요하지 않습니다.")
+                        print("  현재 데이터로는 새로운 스키마가 필요하지 않습니다.")
                 else:
-                    print("⚠️ 분석할 'dummy/actions.csv' 데이터가 없습니다. [7]번으로 생성해주세요.")
+                    print(f" 분석할 {dummy_actions} 파일이 없습니다. ([7]번으로 생성 가능)")
 
             elif choice == 'q':
                 if simulator.is_running: simulator.stop()

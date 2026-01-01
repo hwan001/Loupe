@@ -1,3 +1,5 @@
 .env
 __pycache__
 dummy
+ollama_data
+loupe_data

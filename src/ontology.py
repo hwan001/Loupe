@@ -10,11 +10,11 @@ class GraphSchema:
             "description": "회사 직원 또는 외부 인물",
             "id_key": "id",  # 고유 식별자 키
             "properties": {
-                "id": "사번 (예: 'sec-1001'). 없으면 이름 사용.",
+                "id": "사번 (예: 'sec-1001'), 영문은 소문자로 통일",
                 "name": "이름 (예: '김철수')",
-                "team": "소속 부서 (예: '보안팀')",
-                "role": "직급 (예: '부장')",
-                "gender": "성별 ('남성' 또는 '여성'으로 통일)",
+                "team": "소속 부서 (예: '보안팀', '인프라팀')",
+                "role": "직급 (예: '부장', '사원')",
+                "gender": "성별 ('남성' 또는 '여성')",
                 "age": "나이 (Integer)"
             }
         },
@@ -22,7 +22,7 @@ class GraphSchema:
             "description": "팀, 회사, 학교 등 조직",
             "id_key": "id",
             "properties": {
-                "id": "조직명 (예: '보안팀', '태산그룹')",
+                "id": "조직명 (예: '보안팀', '인프라팀')",
                 "type": "조직 유형 ('Team', 'Company', 'School')"
             }
         },
@@ -30,17 +30,26 @@ class GraphSchema:
             "description": "발생한 사건, 로그, 행동",
             "id_key": "id",
             "properties": {
-                "action": "행동 내용 (예: 'USB 접속')",
+                "action": "행동 내용 (예: 'USB 연결 시도'')",
                 "location": "장소",
                 "time": "발생 시각 (Timestamp)",
-                "source": "출처 (예: 'CCTV', 'Log')"
+                "source": "출처 (예: 'CCTV', 'Log', 'USER')"
             }
         },
         "Certificate": {
             "description": "자격증",
             "id_key": "id",
             "properties": {
-                "id": "자격증 명칭 (예: 'CISSP')"
+                "id": "자격증 명칭 (예: 'CISSP', 'PMP')"
+            }
+        },
+        "Evidence":{
+            "description": "증거",
+            "id_key": "id",
+            "properties": {
+                "id": "증거 번호 (EV-{{hash}})",
+                "timestamp": "발생 시간 (Timestamp)",
+                "text": "원본 증거 포맷"
             }
         }
     }
@@ -51,7 +60,8 @@ class GraphSchema:
         "(Organization:Team)-[:PART_OF]->(Organization:Company)",
         "(Person)-[:HAS_CERT]->(Certificate)",
         "(Person)-[:INTERACTED {{score: Int, action: String}}]->(Person)",
-        "(Person)-[:PERFORMED]->(Event)"
+        "(Person)-[:PERFORMED]->(Event)",
+        "(Event)-[:HAS_EVIDENCE]->(Evidence)",
     ]
 
     @classmethod

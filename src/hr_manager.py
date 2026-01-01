@@ -1,6 +1,4 @@
 import csv
-import time
-from ontology import GraphSchema
 
 class HRDataManager:
     def __init__(self, queue, graph):
@@ -13,7 +11,7 @@ class HRDataManager:
         CSV 데이터를 읽어 LLM을 거치지 않고 직접 Neo4j에 노드와 속성을 주입합니다.
         이 방식은 속성 누락을 100% 방지합니다.
         """
-        print(f"📂 [HR] '{filename}' 데이터를 로드하여 DB에 직접 동기화합니다...")
+        print(f"  [HR] '{filename}' 데이터를 로드하여 DB에 직접 동기화합니다...")
         
         try:
             with open(filename, 'r', encoding='utf-8') as f:
@@ -21,10 +19,10 @@ class HRDataManager:
                 rows = list(reader)
                 
             if not rows:
-                print("⚠️ CSV 파일이 비어있습니다.")
+                print("  CSV 파일이 비어있습니다.")
                 return
 
-            print(f"   - 총 {len(rows)}명의 임직원 데이터를 처리 중...")
+            print(f" - 총 {len(rows)}명의 임직원 데이터를 처리 중...")
 
             # 1. 인물(Person) 및 조직(Organization) 노드 직접 생성 쿼리
             # UNWIND를 사용하여 대량 데이터를 한 번에 처리 (Batch Processing)
@@ -75,21 +73,16 @@ class HRDataManager:
                     """
                     self.graph.query(query_cert, params={'pid': row['id'], 'certs': certs})
 
-            # [선택] Evidence 확보를 위해 텍스트 로그만 큐에 남김 (학습용이 아니라 증적용)
-            # 여기서는 그래프 생성을 이미 했으므로 큐에 넣지 않거나, 
-            # "시스템 로그" 형태로만 큐에 넣어 Evidence 노드만 따로 만들게 할 수 있음.
-            # (깔끔하게 그래프만 구성하려면 생략 가능)
-
-            print(f"   ✅ {len(rows)}명의 데이터가 그래프 DB에 완벽하게 적재되었습니다.")
+            print(f" {len(rows)}명의 데이터가 그래프 DB에 완벽하게 적재되었습니다.")
             
         except FileNotFoundError:
-            print(f"❌ 파일을 찾을 수 없습니다: {filename}")
+            print(f" 파일을 찾을 수 없습니다: {filename}")
         except Exception as e:
-            print(f"❌ 데이터 적재 중 오류 발생: {e}")
+            print(f" 데이터 적재 중 오류 발생: {e}")
 
     def run_relationship_inference(self):
         """Phase 2: 그래프 내부를 분석하여 관계 연결 및 가중치 부여 (Inference)"""
-        print("🔗 [HR] 인물 간 관계 및 가중치 추론(Inference)을 시작합니다...")
+        print("  [HR] 인물 간 관계 및 가중치 추론(Inference)을 시작합니다...")
         
         # [규칙 1] 같은 팀(Organization) 소속이면 'CO_WORKER' 관계 형성
         query_team = """
@@ -120,8 +113,8 @@ class HRDataManager:
             res2 = self.graph.query(query_major)
             c2 = res2[0]['connections'] if res2 else 0
             
-            print(f"   🔹 [결과] 같은 부서 동료 관계: {c1}건 연결됨.")
-            print(f"   🔹 [결과] 같은 전공 동문 관계: {c2}건 연결됨.")
+            print(f"  [결과] 같은 부서 동료 관계: {c1}건 연결됨.")
+            print(f"  [결과] 같은 전공 동문 관계: {c2}건 연결됨.")
             
         except Exception as e:
-            print(f"   ⚠️ 추론 쿼리 실행 실패: {e}")
+            print(f"  추론 쿼리 실행 실패: {e}")
